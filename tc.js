@@ -25,6 +25,11 @@
     let p = esc(line);
     const seg = p.split('!!'); p = seg[0];
     for (let i = 1; i < seg.length; i++) { p += (markOpen ? '</mark>' : '<mark>') + seg[i]; markOpen = !markOpen; }
+    // ![caption](image link) → picture floated left, the text wraps around it
+    p = p.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+([^)\s]+))?\)/g, (m, t, src, href) => {
+      const img = `<img src="${/^https?:/.test(src) ? src : ROOT + src}" alt="${t}">`;
+      return `<figure class="fig">${href ? `<a href="${href}" target="_blank" rel="noopener">${img}</a>` : img}${t ? `<figcaption>${t}</figcaption>` : ''}</figure>`;
+    });
     p = p.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, u) => `<a href="${/^https?:/.test(u) ? u : ROOT + u}" target="_blank" rel="noopener">${t}</a>`);
     // *title* → italics (book titles, quoted phrases)
     return p.replace(/(^|[\s("“'])\*([^*\s][^*]*?)\*(?=[\s.,;:!?)"”']|$)/g, '$1<em>$2</em>');
@@ -127,7 +132,7 @@
 
   function bodyHTML(lines) {
     markOpen = false;
-    let out = '', q = null, buf = [];
+    let out = '', q = null, buf = [], fig = '';
     const flushQ = () => { if (q) { out += `<div class="quote">${closeMark(q.join('\n'))}</div>`; q = null; } };
     const flushB = () => { while (buf.length && !buf[buf.length - 1].trim()) buf.pop(); if (buf.length) out += `<div class="text">${closeMark(buf.join('\n'))}</div>`; buf = []; };
     for (const l of lines) {
@@ -135,10 +140,48 @@
       if (q && !l.trim()) continue;
       flushQ();
       if (!buf.length && !l.trim()) continue;
-      buf.push(inline(l));
+      const h = inline(l);
+      // a picture on its own line joins the next line, so the wrap starts at the first word
+      if (/^<figure[^]*<\/figure>$/.test(h)) { fig += h; continue; }
+      buf.push(fig + h); fig = '';
     }
     flushB(); flushQ();
     return out;
+  }
+
+  // ---------- "go deeper": the soul and anthology pages linked in the note, repeated at the bottom ----------
+  const SITES = [
+    { name: 'soul', re: /^https:\/\/thesouldevotional\.github\.io\/soul\/post\.html\?p=([^#]+)(?:#v(\d+))?/ },
+    { name: 'anthology-lab', re:/^https:\/\/anthology-lab\.github\.io\// },
+  ];
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  // bible/john_15-1-27.txt#v13 → John 15:13; saints/augustine-of-hippo.txt → Augustine of Hippo
+  function soulLabel(path, verse, text) {
+    const b = path.match(/^bible\/((?:\d-)?[a-z-]+?)_(\d+)-(\d+(?:-\d+)*)\.txt$/);
+    if (b) {
+      const book = b[1].split('-').map(cap).join(' ');
+      const v = b[3].split('-');   // 1 · 1-27 · 1-7-29 (5:1 to 7:29)
+      const range = v.length === 3 ? `${v[0]}-${v[1]}:${v[2]}` : v.join('-');
+      return `${book} ${b[2]}:${verse || range}`;
+    }
+    const s = path.match(/^saints\/(.+)\.txt$/);
+    if (s) return s[1].split('-').map(w => /^(of|the|and|de|da|di)$/.test(w) ? w : cap(w)).join(' ');
+    return text;
+  }
+  function deeperHTML(lines) {
+    const groups = SITES.map(s => ({ name: s.name, items: [] }));
+    for (const l of lines) for (const m of l.matchAll(/(?<!!)\[([^\]]+)\]\(([^)\s]+)\)/g)) {
+      const text = m[1].replace(/\*/g, ''), url = m[2];
+      SITES.forEach((s, i) => {
+        const hit = url.match(s.re);
+        if (!hit) return;
+        const label = s.name === 'soul' ? soulLabel(hit[1], hit[2], text) : text;
+        if (!groups[i].items.some(it => it.label === label)) groups[i].items.push({ label, url });
+      });
+    }
+    const rows = groups.filter(g => g.items.length)
+      .map(g => `<div>↳ on ${g.name}: ${g.items.map(it => `<a href="${it.url}" target="_blank" rel="noopener">${esc(it.label)}</a>`).join(' · ')}</div>`);
+    return rows.length ? `<div class="meta deeper">${rows.join('')}</div>` : '';
   }
 
   const fileOf = href => { const m = href && href.match(/p=([^&#]+)/); return m ? m[1] : null; };
@@ -160,7 +203,7 @@
         const chips = n.chips.filter(c => />index</.test(c)).concat(n.chips.filter(c => !/>index</.test(c)), monthChip);
         html = banner(`capsule ${n.n || ''}`.trim(), 'note') + nav(chips) +
           `<div class="ref">${DAYS[dt.getDay()]} ${+n.d} ${MONTHS[+n.m - 1]} ${n.y}${n.n ? ` · ${n.n}/365` : ''}</div><h1 class="title">${esc(n.title)}</h1>` +
-          bodyHTML(n.body) + `<div class="meta" id="topics" hidden></div><div class="pn" id="pn"></div>`;
+          bodyHTML(n.body) + deeperHTML(n.body) + `<div class="meta" id="topics" hidden></div><div class="pn" id="pn"></div>`;
         document.title = n.title + ' · thinking capsules';
       } else {
         html = banner(n.title, 'page') + nav(n.chips) + `<div class="ref">thinking capsules</div><h1 class="title">${esc(n.title)}</h1>` + bodyHTML(n.body);
@@ -286,7 +329,7 @@
   let textPromise = null;
   const allTexts = () => textPromise || (textPromise = allRows().then(rows => Promise.all(rows.map(r => fetch(ROOT + r.path).then(x => x.text()).then(text => Object.assign({ text }, r)).catch(() => null))).then(a => a.filter(Boolean))));
   const cleanText = raw => raw.split('\n').filter(l => !/^(\d{4}_\d\d_\d\d \||↳ |\[\d+\/\d+\]|< )/.test(l)).join(' ')
-    .replace(/!!/g, '').replace(/\\\s?/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/!!/g, '').replace(/\\\s?/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\*/g, '').replace(/\s+/g, ' ').trim();
   const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   function snippet(text, query) {
     const t = cleanText(text), at = t.toLowerCase().indexOf(query.toLowerCase());

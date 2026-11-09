@@ -41,6 +41,8 @@ Content here.
 - `!!text!!` → highlight (use at most once per note, for the single key idea)
 - `\ text` → blockquote line (each line of a quote gets its own `\ `)
 - `[text](post.html?p=YYYY/YYYYMMDD.txt)` → internal link to another note
+- `![caption](assets/notes/YYYYMMDD-name.jpg https://source-page)` → picture, on its own line right after the nav lines: floated top-left with the first paragraph wrapping around it (full width on phones). The second URL (optional) makes the picture a link; use it for the license page and put author + license in the caption when the license asks for credit. Encode `(` `)` in URLs as `%28` `%29`. Resize to 640px wide before adding.
+- Links to soul (`thesouldevotional.github.io/soul/post.html?p=...`) and anthology-lab (`anthology-lab.github.io/...`) are repeated automatically at the bottom of the note (`↳ on soul: …`, `↳ on anthology-lab: …`) by `tc.js`: nothing to write in the `.txt`. Bible passages get their reference from the file name, the rest use the link text. Italics on a linked title go outside the link: `*[Title](url)*`.
 - Last lines: blank line + `[N/365]` + blank line + `< [prev](...) | [next](...) >`
   - prev/next link to the calendar-adjacent days (files in YYYY/ dirs)
   - If no adjacent file exists, use plain text: `prev` or `next`

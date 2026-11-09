@@ -55,6 +55,12 @@ h2 { font-family: var(--serif); font-weight: 400; }
 /* text */
 .text { font-size: 14px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: break-word; }
 .muted { color: var(--muted); font-size: 12px; }
+.fig { float: left; width: 44%; margin: 6px 20px 8px 0; white-space: normal; }
+.fig img { display: block; width: 100%; height: auto; border-radius: 14px; }
+.fig figcaption { font-size: 11px; line-height: 1.4; color: var(--muted); margin-top: 6px; }
+.fig figcaption a, .fig figcaption a:visited { color: var(--muted); }
+@media (max-width: 480px) { .fig { float: none; width: 100%; margin: 4px 0 12px; } }
+.meta { clear: both; }
 mark { background: linear-gradient(transparent 55%, var(--mark) 55%); color: inherit; padding: 0 1px; }
 a, a:visited { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
