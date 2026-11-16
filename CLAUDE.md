@@ -51,6 +51,7 @@ Content here.
 
 ## Writing style
 - Short entries: one sentence to a small paragraph. No padding.
+- Reflections, not articles: open with the idea or one striking detail, give the source in one or two sentences (just enough for a reader who hasn't seen it), then the thought. No recap of the whole piece, no lists of the source's examples, no long author bios. Roughly 110-160 words before the highlight.
 - Every sentence earns its place. Cut anything that repeats or dilutes.
 - Short, punchy sentences. Fragments are fine.
 - Philosophical and introspective, direct without being preachy.
